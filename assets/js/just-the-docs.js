@@ -38,6 +38,8 @@ function initNav() {
   const siteNav = document.getElementById('site-nav');
   const mainHeader = document.getElementById('main-header');
   const menuButton = document.getElementById('menu-button');
+  
+  disableHeadStyleSheets();
 
   jtd.addEvent(menuButton, 'click', function(e){
     e.preventDefault();
@@ -64,6 +66,22 @@ function initNav() {
     searchInput.focus();
   });
   {%- endif %}
+}
+
+// The <head> element is assumed to include the following stylesheets:
+// 0. a <link> to /assets/css/just-the-docs-default.css
+// 1. a <link> to /assets/css/just-the-docs-head-nav.css
+// 2. a <style> containing the result of _includes/css/activation.scss.liquid.
+// It also includes any styles provided by users in _includes/head_custom.html.
+// Stylesheet 2 may be missing (compression can remove empty <style> elements)
+// so disableHeadStyleSheet() needs to access it by its id.
+
+function disableHeadStyleSheets() {
+  document.styleSheets[1].disabled = true;
+  const activation = document.getElementById('jtd-nav-activation');
+  if (activation) {
+    activation.disabled = true;
+  }
 }
 
 {%- if site.search_enabled != false %}
@@ -462,15 +480,44 @@ jtd.setTheme = function(theme) {
   cssFile.setAttribute('href', '{{ "assets/css/just-the-docs-" | relative_url }}' + theme + '.css');
 }
 
+// Note: pathname can have a trailing slash on a local jekyll server
+// and not have the slash on GitHub Pages
+
+function navLink() {
+  var href = document.location.pathname;
+  if (href.endsWith('/') && href != '/') {
+    href = href.slice(0, -1);
+  }
+  return document.getElementById('site-nav').querySelector('a[href="' + href + '"], a[href="' + href + '/"]');
+}
+
 // Scroll site-nav to ensure the link to the current page is visible
 
 function scrollNav() {
-  const href = document.location.pathname;
-  const siteNav = document.getElementById('site-nav');
-  const targetLink = siteNav.querySelector('a[href="' + href + '"], a[href="' + href + '/"]');
-  if(targetLink){
+  const targetLink = navLink();
+  if (targetLink) {
     const rect = targetLink.getBoundingClientRect();
-    siteNav.scrollBy(0, rect.top - 3*rect.height);
+    document.getElementById('site-nav').scrollBy(0, rect.top - 3*rect.height);
+  }
+}
+
+// Find the nav-list-link that refers to the current page
+// then make it and all enclosing nav-list-item elements active.
+
+function activateNav() {
+  var target = navLink();
+  if (target) {
+    target.classList.toggle('active', true);
+    target.removeAttribute('href');
+  }
+  while (target) {
+    while (target && !(target.classList && target.classList.contains('nav-list-item'))) {
+      target = target.parentNode;
+    }
+    if (target) {
+      target.classList.toggle('active', true);
+      target = target.parentNode;
+    }
   }
 }
 
@@ -481,6 +528,7 @@ jtd.onReady(function(){
   {%- if site.search_enabled != false %}
   initSearch();
   {%- endif %}
+  activateNav();
   scrollNav();
 });
 
